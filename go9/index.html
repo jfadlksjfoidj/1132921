@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>九路圍棋 - 終極版</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="game-container">
+    <h1>九路圍棋 <span class="subtitle">(大師版)</span></h1>
+    
+    <div id="statusBar" class="status-bar">準備開始</div>
+
+    <div class="main-layout">
+        
+        <div class="board-section">
+            <div class="board-wrapper">
+                <div class="coords top-coords" id="coordsTop"></div>
+                <div class="coords left-coords" id="coordsLeft"></div>
+                <div id="board"></div>
+            </div>
+
+            <div class="controls">
+                <button class="btn-game" onclick="game.undo()">悔棋</button>
+                <button class="btn-pass" onclick="game.pass()">Pass</button>
+                <button class="btn-game" onclick="game.reset()">新局</button>
+                <button class="btn-ai" onclick="game.toggleAI()" id="aiBtn">AI: 開</button>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <div class="prisoners-box">
+                <div class="p-item">
+                    <div class="stone-icon black"></div>
+                    <div class="p-text">黑棋得分<br><span id="blackScore">0</span></div>
+                </div>
+                <div class="p-item">
+                    <div class="stone-icon white"></div>
+                    <div class="p-text">白棋得分<br><span id="whiteScore">0</span> <small>(+5.5)</small></div>
+                </div>
+            </div>
+            
+            <div class="kifu-box">
+                <h3>📜 棋譜記錄</h3>
+                <ul id="moveList">
+                    </ul>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<audio id="sndMove" src="https://opengameart.org/sites/default/files/click_0.mp3" preload="auto"></audio>
+<audio id="sndCapture" src="https://opengameart.org/sites/default/files/foley_cable01.wav" preload="auto"></audio>
+
+<script src="script.js"></script>
+</body>
+</html>
