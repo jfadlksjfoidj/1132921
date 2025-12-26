@@ -1,10 +1,9 @@
 :root {
     --board-color: #e3c080;
     --line-color: #000;
-    /* 🔥 修改：大幅加大尺寸 */
-    --stone-size: 50px;       /* 棋子變大 */
-    --cell-size: 58px;        /* 格子變大 */
-    --coord-size: 28px;       /* 座標文字空間變大 */
+    --stone-size: 50px;
+    --cell-size: 58px;
+    --coord-size: 28px;
 }
 
 body {
@@ -24,7 +23,6 @@ body {
     padding: 25px;
     border-radius: 15px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    /* 🔥 修改：容器加寬以容納大棋盤 */
     max-width: 1100px; 
     width: 98%;
 }
@@ -36,14 +34,14 @@ h1 { margin: 0 0 15px 0; font-size: 2.2em; color: #f1c40f; text-shadow: 0 2px 4p
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 30px; /* 拉開左右間距 */
+    gap: 30px;
     align-items: flex-start;
 }
 
 .status-bar {
     background: #34495e;
     padding: 12px;
-    font-size: 1.1em; /* 字體加大 */
+    font-size: 1.1em;
     border-radius: 8px;
     margin-bottom: 20px;
     border: 1px solid #7f8c8d;
@@ -86,7 +84,6 @@ h1 { margin: 0 0 15px 0; font-size: 2.2em; color: #f1c40f; text-shadow: 0 2px 4p
 .cell::after { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--line-color); z-index: 0; }
 .cell[data-col="0"]::before { left: 50%; } .cell[data-col="8"]::before { right: 50%; }
 .cell[data-row="0"]::after { top: 50%; } .cell[data-row="8"]::after { bottom: 50%; }
-/* 星位稍微加大 */
 .star-point::after { content: ''; position: absolute; width: 8px; height: 8px; background: #000; border-radius: 50%; z-index: 1; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 
 .stone {
@@ -104,28 +101,72 @@ h1 { margin: 0 0 15px 0; font-size: 2.2em; color: #f1c40f; text-shadow: 0 2px 4p
     100% { transform: rotateY(360deg) scale(0); opacity: 0; }
 }
 
+.hint-mark {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    z-index: 5;
+    pointer-events: none; /* 讓滑鼠可以穿透點擊 */
+}
+
+/* 提示棋子本體 (半透明) */
+.hint-stone {
+    width: var(--stone-size);
+    height: var(--stone-size);
+    border-radius: 50%;
+    opacity: 0.6;
+    transform: scale(0.9);
+    box-shadow: 0 0 10px 2px rgba(46, 204, 113, 0.8); /* 綠色光暈 */
+    animation: hintPulse 1.5s infinite ease-in-out;
+}
+
+.hint-stone.black { background: radial-gradient(circle at 30% 30%, #555, #000); }
+.hint-stone.white { background: radial-gradient(circle at 30% 30%, #fff, #ddd); }
+
+@keyframes hintPulse {
+    0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 15px 10px rgba(46, 204, 113, 0); }
+    100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+}
+@keyframes pulseHint {
+    0% { transform: scale(0.8); opacity: 0.8; }
+    50% { transform: scale(1.2); opacity: 0.4; }
+    100% { transform: scale(0.8); opacity: 0.8; }
+}
+
 .last-move::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 10px; height: 10px; border-radius: 50%; background: #e74c3c; border: 2px solid white; z-index: 3; pointer-events: none; }
 .territory-mark { width: 14px; height: 14px; z-index: 2; position: absolute; transform: rotate(45deg); }
 .territory-black { background: #000; border: 1px solid #555; }
 .territory-white { background: #fff; border: 1px solid #ccc; }
 
-.controls { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
-button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+/* 控制區按鈕 */
+.controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; align-items: center; }
+button { padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 15px; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3); width: 100%; }
 .btn-game { background: #2980b9; color: white; } .btn-game:hover { background: #3498db; transform: translateY(-2px); }
 .btn-pass { background: #e67e22; color: white; } .btn-pass:hover { background: #f39c12; transform: translateY(-2px); }
-.btn-pass.active-pass { background: #d35400; animation: pulsePass 1s infinite; } /* 新增：當有人Pass時按鈕閃爍 */
+.btn-pass.active-pass { background: #d35400; animation: pulsePass 1s infinite; }
 @keyframes pulsePass { 0% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(230, 126, 34, 0); } 100% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0); } }
 
-.btn-ai { background: #27ae60; color: white; }
+/* 🔥 新增提示按鈕樣式 */
+.btn-hint { background: #9b59b6; color: white; } .btn-hint:hover { background: #8e44ad; transform: translateY(-2px); }
+
+/* 🔥 AI 下拉選單樣式 */
+.ai-control { grid-column: span 3; display: flex; align-items: center; justify-content: center; gap: 10px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 8px; }
+.ai-control select { padding: 8px; border-radius: 5px; border: none; background: #ecf0f1; color: #2c3e50; font-weight: bold; cursor: pointer; flex-grow: 1; }
 
 /* 右側資訊面板 */
-.info-panel { width: 240px; display: flex; flex-direction: column; gap: 20px; } /* 加寬 */
+.info-panel { width: 240px; display: flex; flex-direction: column; gap: 20px; }
 .prisoners-box { background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 10px; }
-.p-item { display: flex; align-items: center; background: rgba(255,255,255,0.1); padding: 10px; border-radius: 5px; }
-.stone-icon { width: 30px; height: 30px; border-radius: 50%; margin-right: 12px; border: 1px solid #aaa; }
+.p-item { display: flex; align-items: flex-start; background: rgba(255,255,255,0.1); padding: 10px; border-radius: 5px; }
+.stone-icon { width: 30px; height: 30px; border-radius: 50%; margin-right: 12px; border: 1px solid #aaa; flex-shrink: 0; margin-top: 5px; }
 .stone-icon.black { background: black; } .stone-icon.white { background: white; }
-.p-text { font-size: 1em; text-align: left; line-height: 1.2; }
-.p-text span { font-weight: bold; font-size: 1.4em; }
+.p-info { display: flex; flex-direction: column; text-align: left; width: 100%; }
+.p-title { font-weight: bold; font-size: 1.1em; margin-bottom: 3px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 2px; }
+.p-detail { font-size: 0.9em; display: flex; justify-content: space-between; margin: 2px 0; }
+.p-detail span { font-weight: bold; color: #f1c40f; }
 
 .kifu-box { background: rgba(0,0,0,0.3); border-radius: 8px; padding: 15px; flex-grow: 1; max-height: 450px; display: flex; flex-direction: column; }
 .kifu-box h3 { margin: 0 0 10px 0; font-size: 1.1em; border-bottom: 1px solid #555; padding-bottom: 8px; }

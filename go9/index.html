@@ -24,9 +24,19 @@
 
             <div class="controls">
                 <button class="btn-game" onclick="game.undo()">悔棋</button>
-                <button class="btn-pass" onclick="game.pass()">Pass</button>
+                <button class="btn-pass" onclick="game.pass()">虛手 (Pass)</button>
+                
+                <button class="btn-hint" onclick="game.showHint()">💡 提示</button>
                 <button class="btn-game" onclick="game.reset()">新局</button>
-                <button class="btn-ai" onclick="game.toggleAI()" id="aiBtn">AI: 開</button>
+                
+                <div class="ai-control">
+                    <label for="aiSelect">AI:</label>
+                    <select id="aiSelect" onchange="game.setAILevel(this.value)">
+                        <option value="off">關閉</option>
+                        <option value="easy">簡單 (隨機)</option>
+                        <option value="hard" selected>困難 (思考)</option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -34,18 +44,25 @@
             <div class="prisoners-box">
                 <div class="p-item">
                     <div class="stone-icon black"></div>
-                    <div class="p-text">黑棋得分<br><span id="blackScore">0</span></div>
+                    <div class="p-info">
+                        <div class="p-title">黑棋</div>
+                        <div class="p-detail">盤面子數: <span id="blackCount">0</span></div>
+                        <div class="p-detail">預估地數: <span id="blackScore">0</span></div>
+                    </div>
                 </div>
                 <div class="p-item">
                     <div class="stone-icon white"></div>
-                    <div class="p-text">白棋得分<br><span id="whiteScore">0</span> <small>(+5.5)</small></div>
+                    <div class="p-info">
+                        <div class="p-title">白棋</div>
+                        <div class="p-detail">盤面子數: <span id="whiteCount">0</span></div>
+                        <div class="p-detail">預估地數: <span id="whiteScore">0</span> <small>(+5.5)</small></div>
+                    </div>
                 </div>
             </div>
             
             <div class="kifu-box">
                 <h3>📜 棋譜記錄</h3>
-                <ul id="moveList">
-                    </ul>
+                <ul id="moveList"></ul>
             </div>
         </div>
 

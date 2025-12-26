@@ -5,9 +5,11 @@ class GoGame {
         this.history = []; 
         this.moveListRecord = []; 
         this.currentPlayer = 1; 
-        this.passCount = 0; // 0=無, 1=一方Pass, 2=終局
+        this.passCount = 0; 
         this.isGameOver = false;
-        this.aiEnabled = true;
+        
+        // 🔥 修改：AI 設定
+        this.aiLevel = 'hard'; // 預設困難
         this.koCoordinate = null; 
         this.komi = 5.5; 
 
@@ -20,9 +22,7 @@ class GoGame {
         }
     }
 
-    // ... (initUI, showGhost, removeGhost, playSound 保持不變) ...
     initUI() {
-        // (內容同上個版本，不需變更)
         const boardEl = document.getElementById('board');
         const coordsTop = document.getElementById('coordsTop');
         const coordsLeft = document.getElementById('coordsLeft');
@@ -64,7 +64,7 @@ class GoGame {
     
     showGhost(r, c) {
         if (this.isGameOver || this.board[r][c] !== 0) return;
-        if (this.aiEnabled && this.currentPlayer === 2) return; 
+        if (this.aiLevel !== 'off' && this.currentPlayer === 2) return; // AI 回合不顯示
         const cell = document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
         if (!cell.querySelector('.stone:not(.ghost)')) {
             const ghost = document.createElement('div');
@@ -85,7 +85,6 @@ class GoGame {
         } catch(e) {}
     }
 
-    // ... (saveGame, loadGame 保持不變，但記得存取 passCount) ...
     saveGame() {
         const state = {
             board: this.board,
@@ -95,7 +94,7 @@ class GoGame {
             passCount: this.passCount,
             isGameOver: this.isGameOver,
             koCoordinate: this.koCoordinate,
-            aiEnabled: this.aiEnabled
+            aiLevel: this.aiLevel
         };
         localStorage.setItem('goGameMaster', JSON.stringify(state));
     }
@@ -111,17 +110,18 @@ class GoGame {
             this.passCount = state.passCount || 0;
             this.isGameOver = state.isGameOver;
             this.koCoordinate = state.koCoordinate;
-            this.aiEnabled = state.aiEnabled;
+            this.aiLevel = state.aiLevel || 'hard';
             
-            document.getElementById('aiBtn').innerText = `AI: ${this.aiEnabled ? '開' : '關'}`;
+            // 恢復 UI 狀態
+            document.getElementById('aiSelect').value = this.aiLevel;
             this.updateView();
             this.updateKifuUI();
-            this.updatePassBtnUI(); // 恢復按鈕狀態
+            this.updatePassBtnUI();
+            this.updateStoneCounts(); // 載入時更新計數
 
             if(this.isGameOver) this.endGame();
             else {
                 const pName = this.currentPlayer === 1 ? '⚫ 黑棋' : '⚪ 白棋';
-                // 恢復時如果有 Pass，顯示提示
                 if (this.passCount === 1) {
                     this.updateStatus(`${pName} 回合 (對手已 Pass)`);
                 } else {
@@ -143,7 +143,9 @@ class GoGame {
         this.updateView();
         this.updateKifuUI();
         this.updatePassBtnUI();
+        this.updateStoneCounts();
         this.updateStatus(`⚫ 黑棋先行`);
+        // 重置分數顯示
         document.getElementById('blackScore').innerText = '0';
         document.getElementById('whiteScore').innerText = '0';
         document.querySelectorAll('.cell').forEach(c => c.innerHTML = '');
@@ -152,13 +154,74 @@ class GoGame {
     }
 
     handleHumanClick(r, c) {
-        if (this.isGameOver || (this.aiEnabled && this.currentPlayer === 2)) return;
+        if (this.isGameOver || (this.aiLevel !== 'off' && this.currentPlayer === 2)) return;
         this.playMove(r, c);
     }
 
+    // 🔥 新增：AI 等級設定
+    setAILevel(level) {
+        this.aiLevel = level;
+        this.saveGame();
+        // 如果切換時剛好輪到白棋，且不是關閉狀態，觸發 AI
+        if (!this.isGameOver && this.currentPlayer === 2 && this.aiLevel !== 'off') {
+            setTimeout(() => this.aiMove(), 500);
+        }
+    }
+
+    // 🔥 新增：計算盤面棋子數
+    updateStoneCounts() {
+        let black = 0, white = 0;
+        for(let r=0; r<this.boardSize; r++){
+            for(let c=0; c<this.boardSize; c++){
+                if (this.board[r][c] === 1) black++;
+                else if (this.board[r][c] === 2) white++;
+            }
+        }
+        document.getElementById('blackCount').innerText = black;
+        document.getElementById('whiteCount').innerText = white;
+    }
+
+    // 🔥 新增：提示功能
+   showHint() {
+        if (this.isGameOver) return;
+        
+        // 取得最佳手 (使用 Hard AI 的邏輯，但為了穩定，我們不使用隨機)
+        // 這裡傳入 true 代表是 "Hint Mode"，我們會移除隨機性
+        const bestMove = this.getBestMove(true);
+        
+        // 清除舊提示
+        document.querySelectorAll('.hint-mark').forEach(el => el.remove());
+
+        if (bestMove) {
+            const cell = document.querySelector(`.cell[data-r="${bestMove.r}"][data-c="${bestMove.c}"]`);
+            if (cell) {
+                // 創建提示元素
+                const mark = document.createElement('div');
+                mark.className = 'hint-mark';
+                
+                const stone = document.createElement('div');
+                // 提示顯示當前玩家顏色的半透明棋子
+                stone.className = `hint-stone ${this.currentPlayer === 1 ? 'black' : 'white'}`;
+                
+                mark.appendChild(stone);
+                cell.appendChild(mark);
+                
+                // 3秒後自動消失
+                setTimeout(() => {
+                    if (mark && mark.parentElement) mark.remove();
+                }, 3000);
+            }
+        } else {
+            this.updateStatus("💡 AI 建議：沒有好棋了，考慮 Pass？");
+        }
+    }
+
     playMove(r, c) {
+        document.querySelectorAll('.hint-mark').forEach(el => el.remove());
         if (this.isGameOver) return;
         this.removeGhost(r, c);
+        // 清除提示
+        document.querySelectorAll('.hint-highlight').forEach(el => el.classList.remove('hint-highlight'));
 
         if (this.board[r][c] !== 0) {
             this.updateStatus("❌ 此處已有子", true);
@@ -195,10 +258,8 @@ class GoGame {
         this.updateKifuUI();
 
         this.board[r][c] = this.currentPlayer;
-        
-        // 🔥 關鍵修正：只要有人下子，連續 Pass 次數歸零
         this.passCount = 0; 
-        this.updatePassBtnUI(); // 更新按鈕文字變回 "Pass"
+        this.updatePassBtnUI(); 
 
         let capturedCount = 0;
         if (capturedStones.length > 0) {
@@ -219,7 +280,8 @@ class GoGame {
         }
 
         this.updateView(r, c);
-        
+        this.updateStoneCounts(); // 🔥 更新盤面子數
+
         const isAtari = this.checkAtari(opponent);
         const atariMsg = isAtari ? " ⚠️ 叫吃！" : "";
         this.currentPlayer = opponent;
@@ -227,7 +289,7 @@ class GoGame {
         this.updateStatus(`${nextName} 回合${atariMsg}`);
         this.saveGame();
 
-        if (!this.isGameOver && this.aiEnabled && this.currentPlayer === 2) {
+        if (!this.isGameOver && this.aiLevel !== 'off' && this.currentPlayer === 2) {
             setTimeout(() => this.aiMove(), 500);
         }
     }
@@ -249,8 +311,6 @@ class GoGame {
 
         this.passCount++;
         this.playSound('move');
-        
-        // 🔥 關鍵修正：根據 Pass 次數更新 UI 和狀態
         this.updatePassBtnUI();
 
         if (this.passCount >= 2) { 
@@ -262,24 +322,21 @@ class GoGame {
         this.koCoordinate = null;
         this.saveGame();
 
-        // 如果是白棋(AI) Pass，顯示特殊訊息引導使用者
         if (pColor === "白") {
              this.updateStatus(`⚪ 白棋 Pass！若您也同意終局，請按 Pass (1/2)`);
         } else {
-             // 黑棋 Pass，AI 接手
              const nextName = this.currentPlayer === 1 ? '⚫ 黑棋' : '⚪ 白棋';
              this.updateStatus(`${nextName} 回合 (對手已 Pass)`);
         }
 
-        if (!this.isGameOver && this.aiEnabled && this.currentPlayer === 2) setTimeout(() => this.pass(), 1000);
+        if (!this.isGameOver && this.aiLevel !== 'off' && this.currentPlayer === 2) setTimeout(() => this.pass(), 1000);
     }
 
-    // 🔥 新增：更新 Pass 按鈕外觀
     updatePassBtnUI() {
         const btn = document.querySelector('.btn-pass');
         if (this.passCount === 1) {
             btn.innerText = "虛手 (1/2)";
-            btn.classList.add('active-pass'); // 可以加個閃爍動畫
+            btn.classList.add('active-pass');
         } else {
             btn.innerText = "虛手 (Pass)";
             btn.classList.remove('active-pass');
@@ -288,7 +345,8 @@ class GoGame {
 
     undo() {
         if (this.history.length === 0 || this.isGameOver) return;
-        let steps = (this.aiEnabled && this.currentPlayer === 1) ? 2 : 1;
+        // 如果 AI 開啟，悔兩步；關閉則悔一步
+        let steps = (this.aiLevel !== 'off' && this.currentPlayer === 1) ? 2 : 1;
         if (this.history.length < steps) steps = this.history.length;
         for(let i=0; i<steps; i++) {
             const prevState = this.history.pop();
@@ -301,7 +359,8 @@ class GoGame {
         this.isGameOver = false;
         this.updateView();
         this.updateKifuUI();
-        this.updatePassBtnUI(); // 悔棋也要更新按鈕狀態
+        this.updatePassBtnUI();
+        this.updateStoneCounts();
         this.updateStatus(`悔棋成功，輪到 ${this.currentPlayer === 1 ? '⚫ 黑棋' : '⚪ 白棋'}`);
         this.saveGame();
     }
@@ -317,54 +376,142 @@ class GoGame {
         list.scrollTop = list.scrollHeight;
     }
 
-    // ... (演算法部分 countLiberties, getGroup, getCapturedStones, checkAtari, aiMove, endGame 保持原樣) ...
-    // 請複製上一個版本的這些函數，邏輯不需要變動，因為這是純介面與狀態顯示的優化。
-    
-    // (為了完整性，這裡列出 aiMove 的一點小修改，讓他更傾向於在沒棋下時 Pass)
-    aiMove() {
-        if(this.isGameOver) return;
+    // 🔥 抽取邏輯：計算最佳落點 (供 AI 和提示使用)
+    // 🔥 大幅升級：計算最佳落點
+    getBestMove(isHintMode = false) {
         const moves = [];
+        // 為了避免 Hint 亂跳，如果是 Hint 模式，我們不隨機打亂，而是依序掃描
         for(let r=0; r<9; r++) for(let c=0; c<9; c++) moves.push([r,c]);
-        moves.sort(() => Math.random() - 0.5);
-        let bestMove = null, maxScore = -9999;
         
-        let validMoveFound = false;
-
-        for (let [r, c] of moves) {
-            if (this.board[r][c] !== 0) continue;
-            if (this.koCoordinate && this.koCoordinate[0] === r && this.koCoordinate[1] === c) continue;
-            const nextBoard = this.board.map(row => [...row]);
-            nextBoard[r][c] = 2;
-            const captured = this.getCapturedStones(nextBoard, r, c, 1);
-            const libs = this.countLiberties(nextBoard, r, c);
-            if (libs === 0 && captured.length === 0) continue; 
-            
-            validMoveFound = true; // 只要有合法棋步
-            
-            let score = captured.length * 10;
-            let myNeighbors = 0;
-            [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr,dc])=> {
-                 let nr=r+dr, nc=c+dc;
-                 if(nr>=0 && nr<9 && nc>=0 && nc<9 && this.board[nr][nc]===2) myNeighbors++;
-            });
-            if (myNeighbors === 4) score -= 5;
-            
-            // 簡單 AI：避免下在單眼裡，除非能吃子
-            if (score > maxScore) { maxScore = score; bestMove = {r, c}; }
+        // 只有在非 Hint 模式 (真的 AI 下棋) 才加入隨機性，增加趣味
+        if (!isHintMode && this.aiLevel === 'easy') {
+            moves.sort(() => Math.random() - 0.5);
         }
 
-        // 如果真的沒好棋下，或者分數太低，AI 可以選擇 Pass
-        // 這裡維持簡單：有合法步就下，除非完全沒地方下
-        if (bestMove && validMoveFound) {
+        let bestMove = null;
+        let maxScore = -99999; // 初始分數設很低
+
+        const myColor = this.currentPlayer;
+        const oppColor = myColor === 1 ? 2 : 1;
+
+        for (let [r, c] of moves) {
+            // 1. 基本合法性檢查
+            if (this.board[r][c] !== 0) continue;
+            if (this.koCoordinate && this.koCoordinate[0] === r && this.koCoordinate[1] === c) continue;
+            
+            const nextBoard = this.board.map(row => [...row]);
+            nextBoard[r][c] = myColor;
+            
+            const captured = this.getCapturedStones(nextBoard, r, c, oppColor);
+            const myLibs = this.countLiberties(nextBoard, r, c);
+            
+            // 自殺檢查：沒提子且自己沒氣 -> 絕對禁手
+            if (myLibs === 0 && captured.length === 0) continue; 
+
+            // --- 簡單模式 (Easy) ---
+            if (this.aiLevel === 'easy' && !isHintMode) {
+                return {r, c}; // 隨機返回一個合法點
+            }
+
+            // --- 困難/提示模式 (Hard/Hint) 評分邏輯 ---
+            let score = 0;
+
+            // 如果是 Hint 模式，加入一點點微小的位置權重 (0.01)，確保分數相同時不會亂跳
+            if (isHintMode) {
+                score += (9-r) * 0.01 + (9-c) * 0.001; 
+            } else {
+                 // AI 模式加入隨機因子讓它不要太死板
+                 score += Math.random() * 0.5;
+            }
+
+            // 策略 1: 【救命】(Atari Defense) - 最重要！
+            // 檢查下這手之前，我有沒有棋子剩一氣？
+            // 如果這手棋能增加那團棋子的氣，加超多分
+            if (this.checkAtari(myColor)) {
+                // 這裡簡化判斷：如果下這手後，原本被叫吃的棋子氣變多了，或是這手棋連起來氣 > 1
+                // 由於效能考量，我們簡單判斷：如果這手棋連著我也在叫吃的子，且下完後這團氣 > 1
+                const myGroups = this.getGroup(nextBoard, r, c); // 取得下完後這團棋
+                const currentLibs = this.countLiberties(nextBoard, r, c);
+                if (currentLibs > 1) {
+                    // 簡單啟發式：如果我現在被叫吃，且這手能讓我氣變多，優先下
+                     score += 40; 
+                }
+            }
+
+            // 策略 2: 【吃子】(Capture)
+            if (captured.length > 0) {
+                score += 30 + (captured.length * 5); // 吃越多越好
+            }
+
+            // 策略 3: 【叫吃】(Atari Attack)
+            // 下完後，讓對方某團棋剩一氣
+            let putOpponentInAtari = false;
+            const neighbors = [[0,1],[0,-1],[1,0],[-1,0]];
+            for(let [dr, dc] of neighbors) {
+                const nr = r+dr, nc = c+dc;
+                if(nr>=0 && nr<9 && nc>=0 && nc<9 && nextBoard[nr][nc] === oppColor) {
+                    if(this.countLiberties(nextBoard, nr, nc) === 1) putOpponentInAtari = true;
+                }
+            }
+            if (putOpponentInAtari) score += 15;
+
+            // 策略 4: 【避免送死】(Self-Atari)
+            // 如果這手下下去，自己只剩一口氣 (且沒吃到對方)，這是爛棋 (除非是撲)
+            if (myLibs === 1 && captured.length === 0) {
+                score -= 50; 
+            }
+
+            // 策略 5: 【搶佔空地/星位】
+            // 只有開局時 (前12手) 重視
+            if (this.moveListRecord.length < 12) {
+                if (r===4 && c===4) score += 5; // 天元
+                if ((r===2||r===6) && (c===2||c===6)) score += 4; // 星位
+                if ((r===2||r===6) && c===4) score += 3;
+                if (r===4 && (c===2||c===6)) score += 3;
+            }
+
+            // 策略 6: 【連接與切斷】(簡單判斷)
+            // 貼著對方下 (進攻或防守)
+            let oppNeighborsCount = 0;
+            let myNeighborsCount = 0;
+            for(let [dr, dc] of neighbors) {
+                const nr = r+dr, nc = c+dc;
+                if(nr>=0 && nr<9 && nc>=0 && nc<9) {
+                    if(this.board[nr][nc] === oppColor) oppNeighborsCount++;
+                    if(this.board[nr][nc] === myColor) myNeighborsCount++;
+                }
+            }
+            if (oppNeighborsCount > 0) score += 2; // 戰鬥
+            if (myNeighborsCount > 0) score += 1; // 連接
+
+            // 愚型扣分 (填滿自己四氣)
+            if (myNeighborsCount === 4) score -= 5;
+
+
+            // 更新最佳手
+            if (score > maxScore) {
+                maxScore = score;
+                bestMove = {r, c};
+            }
+        }
+        
+        return bestMove;
+    }
+
+    aiMove() {
+        if(this.isGameOver) return;
+        
+        // 取得最佳落點
+        const bestMove = this.getBestMove();
+
+        if (bestMove) {
             this.playMove(bestMove.r, bestMove.c);
         } else {
             this.pass();
         }
     }
-    
-    // 以下函式請直接從上一個回答複製貼上即可，無需更動：
-    // countLiberties, getGroup, getCapturedStones, checkAtari, endGame, getEmptyRegion, updateView, showCaptureEffect, showTerritory, updateStatus, toggleAI
-    
+
+    // --- 演算法部分保持不變 ---
     countLiberties(board, r, c) {
         const group = this.getGroup(board, r, c);
         const libSet = new Set();
@@ -531,14 +678,6 @@ class GoGame {
         el.style.background = isError ? '#c0392b' : '#34495e';
         el.classList.remove('atari-warning');
         if (msg.includes("叫吃")) el.classList.add('atari-warning');
-    }
-    toggleAI() {
-        this.aiEnabled = !this.aiEnabled;
-        document.getElementById('aiBtn').innerText = `AI: ${this.aiEnabled ? '開' : '關'}`;
-        this.saveGame();
-        if (this.aiEnabled && this.currentPlayer === 2 && !this.isGameOver) {
-            setTimeout(() => this.aiMove(), 500);
-        }
     }
 }
 const game = new GoGame();
